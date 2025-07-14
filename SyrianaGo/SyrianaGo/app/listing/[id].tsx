@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useContext } from 'react';
 import { 
   View, 
   Text, 
@@ -12,7 +12,8 @@ import {
   Dimensions,
   Animated,
   Share,
-  Alert
+  Alert,
+  Modal
 } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
 import Constants from 'expo-constants';
@@ -20,6 +21,8 @@ import { useListing } from '@/hooks/useListing';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import Reviews from '@/components/Reviews'; // Import the Reviews component
+import { addToWishlist, removeFromWishlist } from '@/api/https/auth.https'; // Import wishlist API functions
+import { AuthContext } from '@/app/context/AuthContext';
 
 const API_URL = Constants.expoConfig?.extra?.EXPO_PUBLIC_API_URL;
 const { width, height } = Dimensions.get('window');
@@ -63,6 +66,8 @@ export default function ListingDetailScreen() {
     }
   }, [listing]);
 
+  const { wishlist, setWishlist } = useContext(AuthContext);
+
   const handleShare = async () => {
     try {
       await Share.share({
@@ -74,22 +79,33 @@ export default function ListingDetailScreen() {
     }
   };
 
-  const handleFavorite = () => {
-    setIsFavorited(!isFavorited);
-    Animated.sequence([
-      Animated.spring(heartAnim, {
-        toValue: 1.3,
-        tension: 300,
-        friction: 5,
-        useNativeDriver: true,
-      }),
-      Animated.spring(heartAnim, {
-        toValue: 1,
-        tension: 300,
-        friction: 5,
-        useNativeDriver: true,
-      }),
-    ]).start();
+  const handleFavorite = async () => {
+    try {
+      if (isFavorited) {
+        await removeFromWishlist(id as string);
+        setWishlist(wishlist.filter((item: { _id: string }) => item._id !== id));
+      } else {
+        const newItem = await addToWishlist(id as string);
+        setWishlist([...wishlist, newItem]);
+      }
+      setIsFavorited(!isFavorited);
+      Animated.sequence([
+        Animated.spring(heartAnim, {
+          toValue: 1.3,
+          tension: 300,
+          friction: 5,
+          useNativeDriver: true,
+        }),
+        Animated.spring(heartAnim, {
+          toValue: 1,
+          tension: 300,
+          friction: 5,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    } catch (error) {
+      console.error('Error updating wishlist:', error);
+    }
   };
 
   const handleContact = (type: string, value: string) => {
@@ -118,12 +134,12 @@ export default function ListingDetailScreen() {
           horizontal
           pagingEnabled
           showsHorizontalScrollIndicator={false}
-          keyExtractor={(img, idx) => img + idx}
+          keyExtractor={(img: string, idx: number) => img + idx}
           onMomentumScrollEnd={(event) => {
             const index = Math.round(event.nativeEvent.contentOffset.x / width);
             setCurrentImageIndex(index);
           }}
-          renderItem={({ item, index }) => (
+          renderItem={({ item, index }: { item: string; index: number }) => (
             <View style={styles.imageContainer}>
               <Image
                 source={{ uri: `${API_URL}/uploads/${item}` }}
@@ -140,7 +156,7 @@ export default function ListingDetailScreen() {
         
         {/* Image indicators */}
         <View style={styles.imageIndicators}>
-          {images.map((_, index) => (
+          {images.map((_, index: number) => (
             <View
               key={index}
               style={[
@@ -388,6 +404,14 @@ export default function ListingDetailScreen() {
     );
   };
 
+  const [isModalVisible, setModalVisible] = useState(false);
+  const [startDate, setStartDate] = useState<Date | null>(null);
+  const [endDate, setEndDate] = useState<Date | null>(null);
+
+  const toggleModal = () => {
+    setModalVisible(!isModalVisible);
+  };
+
   if (loading) {
     return (
       <LinearGradient colors={['#017b3e', '#4CAF50']} style={styles.loadingContainer}>
@@ -425,11 +449,16 @@ export default function ListingDetailScreen() {
         showsVerticalScrollIndicator={false}
         onScroll={Animated.event(
           [{ nativeEvent: { contentOffset: { y: scrollY } } }],
-          { useNativeDriver: true }
+          {
+            useNativeDriver: true,
+            listener: (event: { nativeEvent: { contentOffset: { y: number } } }) => {
+              console.log('Scroll event:', event.nativeEvent.contentOffset.y);
+            },
+          }
         )}
       >
         {renderImageGallery()}
-        
+
         <View style={styles.contentContainer}>
           <Animated.View
             style={[
@@ -437,7 +466,7 @@ export default function ListingDetailScreen() {
               {
                 transform: [{ translateY: slideAnim }],
                 opacity: fadeAnim,
-              }
+              },
             ]}
           >
             <Text style={styles.title}>{name}</Text>
@@ -451,8 +480,74 @@ export default function ListingDetailScreen() {
           {renderTabNavigation()}
 
           {activeTab === 'details' ? renderDetailsContent() : renderReviewsContent()}
+
+          {/* Book Button */}
+          <TouchableOpacity
+            style={styles.bookButton}
+            onPress={toggleModal}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.bookButtonText}>Book Now</Text>
+          </TouchableOpacity>
         </View>
       </ScrollView>
+
+      {/* Booking Modal */}
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={isModalVisible}
+        onRequestClose={toggleModal}
+      >
+        <View style={styles.modalContainer}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Choose Booking Dates</Text>
+
+            {/* Date Picker Placeholder */}
+            <View style={styles.datePickerContainer}>
+              <Text style={styles.datePickerLabel}>Start Date:</Text>
+              <TouchableOpacity
+                style={styles.datePickerButton}
+                onPress={() => console.log('Open Start Date Picker')}
+              >
+                <Text style={styles.datePickerButtonText}>{startDate ? startDate.toDateString() : 'Select Start Date'}</Text>
+              </TouchableOpacity>
+
+              <Text style={styles.datePickerLabel}>End Date:</Text>
+              <TouchableOpacity
+                style={styles.datePickerButton}
+                onPress={() => console.log('Open End Date Picker')}
+              >
+                <Text style={styles.datePickerButtonText}>{endDate ? endDate.toDateString() : 'Select End Date'}</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Payment Options Placeholder */}
+            <View style={styles.paymentOptionsContainer}>
+              <Text style={styles.paymentOptionsTitle}>Payment Options</Text>
+              <TouchableOpacity
+                style={styles.paymentOptionButton}
+                onPress={() => console.log('Card Payment Selected')}
+              >
+                <Text style={styles.paymentOptionText}>Pay with Card</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.paymentOptionButton}
+                onPress={() => console.log('Cash on Delivery Selected')}
+              >
+                <Text style={styles.paymentOptionText}>Cash on Delivery</Text>
+              </TouchableOpacity>
+            </View>
+
+            <TouchableOpacity
+              style={styles.closeModalButton}
+              onPress={toggleModal}
+            >
+              <Text style={styles.closeModalButtonText}>Close</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -797,6 +892,118 @@ const styles = StyleSheet.create({
   contactButtonText: {
     color: '#fff',
     fontSize: 12,
+    fontWeight: '700',
+  },
+  bookButton: {
+    backgroundColor: '#337914',
+    paddingVertical: 16,
+    borderRadius: 25,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 16,
+    elevation: 5,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+  },
+  bookButtonText: {
+    color: '#fff',
+    fontSize: 18,
+    fontWeight: '700',
+  },
+  modalContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.7)',
+  },
+  modalContent: {
+    width: '90%',
+    backgroundColor: '#fff',
+    borderRadius: 20,
+    padding: 24,
+    elevation: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+  },
+  modalTitle: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: '#1a1a1a',
+    marginBottom: 16,
+    textAlign: 'center',
+  },
+  datePickerContainer: {
+    marginBottom: 24,
+  },
+  datePickerLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 8,
+  },
+  datePickerButton: {
+    backgroundColor: '#f0f0f0',
+    borderRadius: 10,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    alignItems: 'center',
+    marginBottom: 16,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+  },
+  datePickerButtonText: {
+    fontSize: 16,
+    color: '#333',
+  },
+  paymentOptionsContainer: {
+    marginBottom: 24,
+  },
+  paymentOptionsTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#1a1a1a',
+    marginBottom: 16,
+    textAlign: 'center',
+  },
+  paymentOptionButton: {
+    backgroundColor: '#f0f0f0',
+    borderRadius: 10,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    alignItems: 'center',
+    marginBottom: 16,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+  },
+  paymentOptionText: {
+    fontSize: 16,
+    color: '#333',
+  },
+  closeModalButton: {
+    backgroundColor: '#337914',
+    borderRadius: 10,
+    paddingVertical: 12,
+    alignItems: 'center',
+    marginTop: 16,
+    elevation: 5,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+  },
+  closeModalButtonText: {
+    color: '#fff',
+    fontSize: 16,
     fontWeight: '700',
   },
 });

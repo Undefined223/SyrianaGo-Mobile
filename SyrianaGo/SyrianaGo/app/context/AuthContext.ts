@@ -8,6 +8,9 @@ interface AuthContextType {
   isLoading: boolean;
   login: (credentials: LoginCredentials) => Promise<void>;
   logout: () => Promise<void>;
+  setUser: (user: User) => void;
+  wishlist: Array<{ _id: string; images: string[]; name: { en: string }; pricePerDay: number }>;
+  setWishlist: (wishlist: Array<{ _id: string; images: string[]; name: { en: string }; pricePerDay: number }>) => void;
 }
 
 export interface User {

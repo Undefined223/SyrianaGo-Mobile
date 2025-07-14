@@ -9,13 +9,15 @@ import {
   Animated,
   Alert,
   Switch,
-  TextInput
+  TextInput,
+  Linking
 } from 'react-native';
 import React, { useContext, useState, useEffect, useRef } from 'react';
 import { AuthContext } from '../context/AuthContext';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { updateUser } from '@/api/https/auth.https';
+import useUserBookings from '@/hooks/useUserBookings';
 
 export default function Profile() {
   const authContext = useContext(AuthContext);
@@ -94,6 +96,22 @@ export default function Profile() {
   const [success, setSuccess] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const { bookings, loading: loadingBookings, error: bookingsError } = useUserBookings();
+
+  useEffect(() => {
+    // Trigger re-render when user data changes
+    setForm({
+      name: authContext?.user?.name || '',
+      email: authContext?.user?.email || '',
+      oldPassword: '',
+      newPassword: '',
+      confirmNewPassword: '',
+    });
+  }, [authContext?.user]);
+
+  useEffect(() => {
+    console.log('AuthContext user updated:', authContext?.user);
+  }, [authContext?.user]);
 
   const handleSubmit = async () => {
     setLoading(true);
@@ -113,8 +131,13 @@ export default function Profile() {
         oldPassword: form.oldPassword,
         newPassword: form.newPassword,
       };
+      console.log('Submitting payload:', payload);
       const updatedUser = await updateUser(payload);
+
+      // Update user in AuthContext
+      console.log('Updated user:', updatedUser);
       authContext?.setUser?.(updatedUser);
+
       setSuccess('Profile updated successfully!');
       setForm({
         ...form,
@@ -123,14 +146,56 @@ export default function Profile() {
         confirmNewPassword: '',
       });
     } catch (err: unknown) {
+      console.error('Update error:', err);
       if (err instanceof Error) {
         setError(err.message);
       } else {
         setError('Update failed');
       }
+      if (
+        err instanceof Error &&
+        'response' in err &&
+        err.response !== null &&
+        typeof err.response === 'object' &&
+        'status' in err.response &&
+        err.response.status === 401
+      ) {
+        console.log('Error 401: Unauthorized access', err.response);
+      }
     } finally {
       setLoading(false);
     }
+  };
+
+  const renderBookings = () => {
+    if (loadingBookings) {
+      return <Text>Loading bookings...</Text>;
+    }
+
+    if (bookingsError) {
+      console.error('Bookings error:', bookingsError);
+      return <Text>Error fetching bookings: {bookingsError}</Text>;
+    }
+
+    if (bookings.length === 0) {
+      return <Text>No bookings yet.</Text>;
+    }
+
+    return bookings.map((booking) => (
+      <View key={booking._id} style={styles.bookingCard}>
+        <Image source={{ uri: booking.listingId.images[0] }} style={styles.bookingImage} />
+        <Text style={styles.bookingName}>{booking.listingId.name.en}</Text>
+        <Text style={styles.bookingDates}>{booking.details.startDate} - {booking.details.endDate}</Text>
+        <Text style={styles.bookingGuests}>Guests: {booking.details.guests}</Text>
+        <Text style={styles.bookingStatus}>Status: {booking.status}</Text>
+        <TouchableOpacity
+          style={styles.bookingActionButton}
+          onPress={() => Linking.openURL(booking.listingId.cta.url)}
+        >
+          <Text style={styles.bookingActionText}>Rebook</Text>
+        </TouchableOpacity>
+      </View>
+    ));
   };
 
   const renderTabContent = () => {
@@ -179,85 +244,15 @@ export default function Profile() {
               </View>
             </View>
 
-          
+            
           </View>
         );
 
       case 'bookings':
         return (
-          <View style={styles.tabContent}>
-            <Text style={styles.sectionTitle}>My Bookings</Text>
-            
-            {/* Booking Filters */}
-            <View style={styles.filterContainer}>
-              <TouchableOpacity style={[styles.filterButton, styles.filterButtonActive]}>
-                <Text style={styles.filterButtonActiveText}>All</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.filterButton}>
-                <Text style={styles.filterButtonText}>Upcoming</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.filterButton}>
-                <Text style={styles.filterButtonText}>Completed</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.filterButton}>
-                <Text style={styles.filterButtonText}>Cancelled</Text>
-              </TouchableOpacity>
-            </View>
-
-            {/* Bookings List */}
-            <View style={styles.bookingsList}>
-              {/* Sample Booking Item */}
-              <View style={styles.bookingItem}>
-                <View style={styles.bookingHeader}>
-                  <Text style={styles.bookingTitle}>Spa Massage Session</Text>
-                  <Text style={styles.bookingStatus}>Upcoming</Text>
-                </View>
-                <View style={styles.bookingDetails}>
-                  <Text style={styles.bookingDate}>📅 Dec 15, 2024 at 2:00 PM</Text>
-                  <Text style={styles.bookingLocation}>📍 Wellness Center, Downtown</Text>
-                  <Text style={styles.bookingPrice}>💰 $85.00</Text>
-                </View>
-                <View style={styles.bookingActions}>
-                  <TouchableOpacity style={styles.bookingActionButton}>
-                    <Text style={styles.bookingActionText}>View Details</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity style={[styles.bookingActionButton, styles.cancelButton]}>
-                    <Text style={styles.cancelButtonText}>Cancel</Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-
-              {/* Another Sample Booking */}
-              <View style={styles.bookingItem}>
-                <View style={styles.bookingHeader}>
-                  <Text style={styles.bookingTitle}>Facial Treatment</Text>
-                  <Text style={[styles.bookingStatus, styles.completedStatus]}>Completed</Text>
-                </View>
-                <View style={styles.bookingDetails}>
-                  <Text style={styles.bookingDate}>📅 Dec 10, 2024 at 11:00 AM</Text>
-                  <Text style={styles.bookingLocation}>📍 Beauty Salon, Uptown</Text>
-                  <Text style={styles.bookingPrice}>💰 $120.00</Text>
-                </View>
-                <View style={styles.bookingActions}>
-                  <TouchableOpacity style={styles.bookingActionButton}>
-                    <Text style={styles.bookingActionText}>Leave Review</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity style={styles.bookingActionButton}>
-                    <Text style={styles.bookingActionText}>Rebook</Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-
-              {/* Empty State */}
-              {false && (
-                <View style={styles.emptyState}>
-                  <Text style={styles.emptyStateIcon}>📅</Text>
-                  <Text style={styles.emptyStateTitle}>No bookings yet</Text>
-                  <Text style={styles.emptyStateText}>Start exploring services and make your first booking!</Text>
-                </View>
-              )}
-            </View>
-          </View>
+          <ScrollView style={styles.tabContent}>
+            {renderBookings()}
+          </ScrollView>
         );
 
       case 'settings':
@@ -665,7 +660,7 @@ const styles = StyleSheet.create({
   bookingsList: {
     gap: 15,
   },
-  bookingItem: {
+  bookingCard: {
     backgroundColor: 'rgba(255, 255, 255, 0.9)',
     borderRadius: 15,
     padding: 20,
@@ -677,71 +672,44 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 8,
     elevation: 3,
+    marginBottom: 15,
   },
-  bookingHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
+  bookingImage: {
+    width: '100%',
+    height: 150,
+    borderRadius: 10,
+    marginBottom: 10,
   },
-  bookingTitle: {
+  bookingName: {
     fontSize: 18,
     fontWeight: 'bold',
     color: '#333',
+    marginBottom: 5,
+  },
+  bookingDates: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 5,
+  },
+  bookingGuests: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 5,
   },
   bookingStatus: {
-    fontSize: 12,
+    fontSize: 14,
     fontWeight: '600',
     color: '#017b3e',
-    backgroundColor: 'rgba(1, 123, 62, 0.1)',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 8,
-  },
-  completedStatus: {
-    color: '#28a745',
-    backgroundColor: 'rgba(40, 167, 69, 0.1)',
-  },
-  bookingDetails: {
-    marginBottom: 15,
-  },
-  bookingDate: {
-    fontSize: 14,
-    color: '#666',
-    marginBottom: 5,
-  },
-  bookingLocation: {
-    fontSize: 14,
-    color: '#666',
-    marginBottom: 5,
-  },
-  bookingPrice: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#017b3e',
-  },
-  bookingActions: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+    marginBottom: 10,
   },
   bookingActionButton: {
-    flex: 1,
+    backgroundColor: '#017b3e',
     paddingVertical: 10,
-    backgroundColor: 'rgba(1, 123, 62, 0.1)',
     borderRadius: 8,
     alignItems: 'center',
-    marginHorizontal: 5,
   },
   bookingActionText: {
-    color: '#017b3e',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  cancelButton: {
-    backgroundColor: 'rgba(255, 107, 107, 0.1)',
-  },
-  cancelButtonText: {
-    color: '#ff6b6b',
+    color: '#ffffff',
     fontSize: 14,
     fontWeight: '600',
   },

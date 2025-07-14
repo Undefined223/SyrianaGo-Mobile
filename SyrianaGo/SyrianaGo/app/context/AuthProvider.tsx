@@ -11,6 +11,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [userToken, setUserToken] = useState<string | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [wishlist, setWishlist] = useState<any[]>([]);
 
   const login = async (credentials: LoginCredentials): Promise<void> => {
     try {
@@ -55,6 +56,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         user,
         userToken,
         isLoading,
+        setUser,
+        wishlist,
+        setWishlist,
       }}
     >
       {children}

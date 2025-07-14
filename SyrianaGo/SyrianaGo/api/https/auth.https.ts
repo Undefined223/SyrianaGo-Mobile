@@ -75,6 +75,17 @@ const getUserRecentActivities = async (userId, lang = 'en') => {
   return res.data;
 };
 
+export const logAsyncStorageData = async (): Promise<void> => {
+  try {
+    const keys = await AsyncStorage.getAllKeys();
+    const data = await AsyncStorage.multiGet(keys);
+    console.log('AsyncStorage data:', data);
+  } catch (error) {
+    console.error('Error logging AsyncStorage data:', error);
+  }
+};
+
+
 export const updateUser = async (data: {
   name: string;
   email: string;
@@ -82,9 +93,22 @@ export const updateUser = async (data: {
   newPassword?: string;
 }): Promise<User> => {
   try {
-    const res = await axiosInstance.put('/auth/me', data);
+    const token = await AsyncStorage.getItem('userToken');
+    console.log('Update token:', token);
+    console.log('Update payload:', data);
+    const res = await axiosInstance.put('/auth/me', data, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+    console.log('Update response:', res.data);
+
+    // Save updated user data in AsyncStorage
+    await AsyncStorage.setItem('userData', JSON.stringify(res.data));
+
     return res.data;
   } catch (error: unknown) {
+    console.error('Update error:', error);
     if (error instanceof Error) {
       throw error.message;
     }
@@ -113,19 +137,49 @@ const loginWithGoogle = () => {
   }
 };
 
-const addToWishlist = async (listingId: string): Promise<any> => {
-  const res = await axiosInstance.post(`/auth/wishlist/${listingId}`);
-  return res.data;
+export const addToWishlist = async (listingId: string): Promise<any> => {
+  try {
+    const token = await AsyncStorage.getItem('userToken');
+    const res = await axiosInstance.post(`/auth/wishlist/${listingId}`, {}, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+    return res.data;
+  } catch (error) {
+    console.error('Error adding to wishlist:', error);
+    throw error.response?.data?.message || 'Failed to add to wishlist';
+  }
 };
 
-const getWishlist = async () => {
-  const res = await axiosInstance.get(`/auth/wishlist`);
-  return res.data;
+export const getWishlist = async (): Promise<any[]> => {
+  try {
+    const token = await AsyncStorage.getItem('userToken');
+    const res = await axiosInstance.get(`/auth/wishlist`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+    return res.data;
+  } catch (error) {
+    console.error('Error fetching wishlist:', error);
+    throw error.response?.data?.message || 'Failed to fetch wishlist';
+  }
 };
 
-const removeFromWishlist = async (listingId: string): Promise<any> => {
-  const res = await axiosInstance.delete(`/auth/wishlist/${listingId}`);
-  return res.data;
+export const removeFromWishlist = async (listingId: string): Promise<any> => {
+  try {
+    const token = await AsyncStorage.getItem('userToken');
+    const res = await axiosInstance.delete(`/auth/wishlist/${listingId}`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+    return res.data;
+  } catch (error) {
+    console.error('Error removing from wishlist:', error);
+    throw error.response?.data?.message || 'Failed to remove from wishlist';
+  }
 };
 
 // 2FA
@@ -140,8 +194,9 @@ const toggle2FA = async () => {
 };
 
 // Get user bookings
-const getUserBookings = async () => {
+export const getUserBookings = async (): Promise<any[]> => {
   const res = await axiosInstance.get(`/auth/bookings`);
   return res.data;
 };
 // Google Callback – typically handled server-side; not used directly in client-side code
+
