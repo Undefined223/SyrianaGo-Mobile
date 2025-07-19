@@ -1,14 +1,14 @@
 import React, { useRef, useState, useContext } from 'react';
-import { 
-  View, 
-  Text, 
-  ActivityIndicator, 
-  Image, 
-  StyleSheet, 
-  ScrollView, 
-  Linking, 
-  FlatList, 
-  TouchableOpacity, 
+import {
+  View,
+  Text,
+  ActivityIndicator,
+  Image,
+  StyleSheet,
+  ScrollView,
+  Linking,
+  FlatList,
+  TouchableOpacity,
   Dimensions,
   Animated,
   Share,
@@ -22,7 +22,17 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import Reviews from '@/components/Reviews'; // Import the Reviews component
 import { addToWishlist, removeFromWishlist } from '@/api/https/auth.https'; // Import wishlist API functions
-import { AuthContext } from '@/app/context/AuthContext';
+import { AuthContext, AuthContextType } from '../context/AuthContext';
+
+import ImageGallery from '@/components/listing/ImageGallery';
+import TabNavigation from '@/components/listing/TabNavigation';
+import BookingModal from '@/components/listing/BookingModal';
+import { StripeProvider } from '@stripe/stripe-react-native';
+import MapView, { Marker } from 'react-native-maps';
+import { WebView } from 'react-native-webview';
+
+import styles from './styles/ListingDetailScreen.styles';
+import { useLanguage } from '@/app/context/LanguageContext';
 
 const API_URL = Constants.expoConfig?.extra?.EXPO_PUBLIC_API_URL;
 const { width, height } = Dimensions.get('window');
@@ -66,16 +76,20 @@ export default function ListingDetailScreen() {
     }
   }, [listing]);
 
-  const { wishlist, setWishlist } = useContext(AuthContext);
+  const authContext = useContext(AuthContext) as AuthContextType;
+
+  const { wishlist, setWishlist, user } = authContext;
+  const { t, language } = useLanguage();
+
 
   const handleShare = async () => {
     try {
       await Share.share({
-        message: `Check out this amazing listing: ${listing.name?.en || listing.name}`,
-        url: `https://syriango.com/en/listing/${id}`,
+        message: `${t('check_out_listing')}: ${listing.name?.[language] || listing.name?.en || t('unknown_listing')}`,
+        url: `https://syriango.com/${language}/listing/${id}`,
       });
     } catch (error) {
-      console.log('Error sharing:', error);
+      console.log(t('error_sharing'), error);
     }
   };
 
@@ -124,111 +138,11 @@ export default function ListingDetailScreen() {
   };
 
   const renderImageGallery = () => {
-    const images = listing.images || [];
-    if (images.length === 0) return null;
-
-    return (
-      <View style={styles.imageGalleryContainer}>
-        <FlatList
-          data={images}
-          horizontal
-          pagingEnabled
-          showsHorizontalScrollIndicator={false}
-          keyExtractor={(img: string, idx: number) => img + idx}
-          onMomentumScrollEnd={(event) => {
-            const index = Math.round(event.nativeEvent.contentOffset.x / width);
-            setCurrentImageIndex(index);
-          }}
-          renderItem={({ item, index }: { item: string; index: number }) => (
-            <View style={styles.imageContainer}>
-              <Image
-                source={{ uri: `${API_URL}/uploads/${item}` }}
-                style={styles.heroImage}
-                resizeMode="cover"
-              />
-              <LinearGradient
-                colors={['transparent', 'rgba(0,0,0,0.7)']}
-                style={styles.imageOverlay}
-              />
-            </View>
-          )}
-        />
-        
-        {/* Image indicators */}
-        <View style={styles.imageIndicators}>
-          {images.map((_, index: number) => (
-            <View
-              key={index}
-              style={[
-                styles.indicator,
-                currentImageIndex === index && styles.indicatorActive
-              ]}
-            />
-          ))}
-        </View>
-
-        {/* Action buttons */}
-        <View style={styles.actionButtons}>
-          <TouchableOpacity
-            style={styles.actionButton}
-            onPress={handleFavorite}
-            activeOpacity={0.8}
-          >
-            <Animated.View style={{ transform: [{ scale: heartAnim }] }}>
-              <Text style={styles.actionButtonText}>
-                {isFavorited ? '❤️' : '🤍'}
-              </Text>
-            </Animated.View>
-          </TouchableOpacity>
-          
-          <TouchableOpacity
-            style={styles.actionButton}
-            onPress={handleShare}
-            activeOpacity={0.8}
-          >
-            <Text style={styles.actionButtonText}>📤</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-    );
+    return <ImageGallery images={listing.images || []} API_URL={API_URL} />;
   };
 
   const renderTabNavigation = () => {
-    return (
-      <View style={styles.tabContainer}>
-        <TouchableOpacity
-          style={[
-            styles.tabButton,
-            activeTab === 'details' && styles.tabButtonActive
-          ]}
-          onPress={() => setActiveTab('details')}
-          activeOpacity={0.8}
-        >
-          <Text style={[
-            styles.tabButtonText,
-            activeTab === 'details' && styles.tabButtonTextActive
-          ]}>
-            Details
-          </Text>
-        </TouchableOpacity>
-        
-        <TouchableOpacity
-          style={[
-            styles.tabButton,
-            activeTab === 'reviews' && styles.tabButtonActive
-          ]}
-          onPress={() => setActiveTab('reviews')}
-          activeOpacity={0.8}
-        >
-          <Text style={[
-            styles.tabButtonText,
-            activeTab === 'reviews' && styles.tabButtonTextActive
-          ]}>
-            Reviews
-          </Text>
-        </TouchableOpacity>
-      </View>
-    );
+    return <TabNavigation activeTab={activeTab} setActiveTab={setActiveTab} />;
   };
 
   const renderPriceCard = () => {
@@ -249,7 +163,7 @@ export default function ListingDetailScreen() {
           colors={['#FFD700', '#FFA500']}
           style={styles.priceGradient}
         >
-          <Text style={styles.priceLabel}>Price per day</Text>
+          <Text style={styles.priceLabel}>{t('price_per_day')}</Text>
           <Text style={styles.priceValue}>${price}</Text>
           <View style={styles.priceAccent} />
         </LinearGradient>
@@ -286,7 +200,7 @@ export default function ListingDetailScreen() {
   const renderContactCard = () => {
     const contact = listing.contact || {};
     const hasContact = contact.phone || contact.email || contact.website;
-    
+
     if (!hasContact) return null;
 
     return (
@@ -304,55 +218,17 @@ export default function ListingDetailScreen() {
             colors={['rgba(1,123,62,0.9)', 'rgba(46,125,50,0.9)']}
             style={styles.contactGradient}
           >
-            <Text style={styles.contactTitle}>💬 Get in Touch</Text>
-            
+            <Text style={styles.contactTitle}>💬 {t('get_in_touch')}</Text>
+
             <View style={styles.contactButtons}>
               {contact.phone && (
-                <TouchableOpacity
-                  style={styles.contactButton}
-                  onPress={() => handleContact('phone', contact.phone)}
-                  activeOpacity={0.8}
-                >
-                  <LinearGradient
-                    colors={['#25D366', '#128C7E']}
-                    style={styles.contactButtonGradient}
-                  >
-                    <Text style={styles.contactButtonIcon}>📞</Text>
-                    <Text style={styles.contactButtonText}>Call</Text>
-                  </LinearGradient>
-                </TouchableOpacity>
+                <Text>{t('phone')}: {contact.phone}</Text>
               )}
-              
               {contact.email && (
-                <TouchableOpacity
-                  style={styles.contactButton}
-                  onPress={() => handleContact('email', contact.email)}
-                  activeOpacity={0.8}
-                >
-                  <LinearGradient
-                    colors={['#EA4335', '#D33B2C']}
-                    style={styles.contactButtonGradient}
-                  >
-                    <Text style={styles.contactButtonIcon}>✉️</Text>
-                    <Text style={styles.contactButtonText}>Email</Text>
-                  </LinearGradient>
-                </TouchableOpacity>
+                <Text>{t('email')}: {contact.email}</Text>
               )}
-              
               {contact.website && (
-                <TouchableOpacity
-                  style={styles.contactButton}
-                  onPress={() => handleContact('website', contact.website)}
-                  activeOpacity={0.8}
-                >
-                  <LinearGradient
-                    colors={['#4285F4', '#1976D2']}
-                    style={styles.contactButtonGradient}
-                  >
-                    <Text style={styles.contactButtonIcon}>🌐</Text>
-                    <Text style={styles.contactButtonText}>Website</Text>
-                  </LinearGradient>
-                </TouchableOpacity>
+                <Text>{t('website')}: {contact.website}</Text>
               )}
             </View>
           </LinearGradient>
@@ -361,15 +237,70 @@ export default function ListingDetailScreen() {
     );
   };
 
+  const renderMapSection = () => {
+    const location = listing.location;
+
+    if (!location?.coordinates?.lat || !location?.coordinates?.lng) return null;
+
+    const latitude = location.coordinates.lat;
+    const longitude = location.coordinates.lng;
+
+    const leafletHtml = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.3/dist/leaflet.css" />
+          <script src="https://unpkg.com/leaflet@1.9.3/dist/leaflet.js"></script>
+          <style>
+            html, body, #map {
+              height: 100%;
+              width: 100%;
+              margin: 0;
+              padding: 0;
+            }
+          </style>
+        </head>
+        <body>
+          <div id="map"></div>
+          <script>
+            document.addEventListener("DOMContentLoaded", function() {
+              const map = L.map('map').setView([${latitude}, ${longitude}], 15);
+              L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                maxZoom: 19,
+              }).addTo(map);
+              L.marker([${latitude}, ${longitude}]).addTo(map)
+                .bindPopup('${listing.name?.[language] || listing.name?.en || t('unknown_listing')}')
+                .openPopup();
+            });
+          </script>
+        </body>
+      </html>
+    `;
+
+    return (
+    <View style={styles.mapContainer}>
+  <WebView
+    originWhitelist={['*']}
+    source={{ html: leafletHtml }}
+    style={styles.map}
+  />
+</View>
+
+    );
+  };
+
+
   const renderDetailsContent = () => {
     const desc = listing.description?.en || listing.description;
-    
+
     return (
       <View style={styles.tabContent}>
         <View style={styles.cardsContainer}>
           {renderPriceCard()}
           {renderLocationCard()}
         </View>
+
+        {renderMapSection()}
 
         <Animated.View
           style={[
@@ -380,7 +311,7 @@ export default function ListingDetailScreen() {
             }
           ]}
         >
-          <Text style={styles.descriptionTitle}>✨ About this listing</Text>
+          <Text style={styles.descriptionTitle}>✨ {t('about_listing')}</Text>
           <Text style={styles.description}>{desc}</Text>
         </Animated.View>
 
@@ -392,12 +323,12 @@ export default function ListingDetailScreen() {
   const renderReviewsContent = () => {
     // You'll need to pass the current user if available
     // This assumes you have a way to get the current user
-    const currentUser = null; // Replace with actual user data if available
-    
+    const currentUser = user; // Replace with actual user data if available
+
     return (
       <View style={styles.tabContent}>
-        <Reviews 
-          listingId={id as string} 
+        <Reviews
+          listingId={id as string}
           user={currentUser}
         />
       </View>
@@ -410,6 +341,100 @@ export default function ListingDetailScreen() {
 
   const toggleModal = () => {
     setModalVisible(!isModalVisible);
+  };
+
+  const handleBookingSubmit = async () => {
+    if (!startDate || !endDate) {
+      Alert.alert('Error', 'Please select both start and end dates for your booking.');
+      return;
+    }
+
+    try {
+      console.log('Submitting booking:', { startDate, endDate });
+      // Replace with actual API call
+      const response = await fetch(`${API_URL}/bookings`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          listingId: id,
+          startDate,
+          endDate,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to submit booking');
+      }
+
+      const result = await response.json();
+      console.log('Booking submitted successfully:', result);
+      Alert.alert('Success', 'Your booking has been submitted!');
+      toggleModal();
+    } catch (error) {
+      console.error('Error submitting booking:', error);
+      Alert.alert('Error', error instanceof Error ? error.message : 'Failed to submit booking');
+    }
+  };
+
+  const renderBookingModal = () => {
+    const currentUser = user; // Ensure user context is available
+
+    if (!currentUser) {
+      Alert.alert('Error', 'You must be signed in to book a listing.');
+      return null;
+    }
+
+    return (
+
+
+      <BookingModal
+        isVisible={isModalVisible}  // Change from isModalVisible to isVisible
+        onClose={toggleModal}
+        startDate={startDate}
+        endDate={endDate}
+        setStartDate={setStartDate}
+        setEndDate={setEndDate}
+        listingId={Array.isArray(id) ? id[0] : id} // Ensure id is a string
+        userId={currentUser.id} // Pass userId from context
+        pricePerDay={listing.pricePerDay || listing.price}
+      />
+    );
+  };
+
+  const renderActionButtons = () => {
+    return (
+      <View style={styles.actionButtons}>
+        <TouchableOpacity
+          style={styles.actionButton}
+          onPress={handleFavorite}
+          activeOpacity={0.8}
+        >
+          <Animated.View style={{ transform: [{ scale: heartAnim }] }}>
+            <Text style={styles.actionButtonText}>
+              {isFavorited ? '❤️' : '🖤'}
+            </Text>
+          </Animated.View>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.actionButton}
+          onPress={handleShare}
+          activeOpacity={0.8}
+        >
+          <Text style={styles.actionButtonText}>🔗</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  };
+
+  const renderListingName = () => {
+    return (
+      <Text style={styles.listingName}>
+        {listing.name?.[language] || listing.name?.en || t('unknown_listing')}
+      </Text>
+    );
   };
 
   if (loading) {
@@ -447,17 +472,10 @@ export default function ListingDetailScreen() {
       <ScrollView
         style={styles.scrollView}
         showsVerticalScrollIndicator={false}
-        onScroll={Animated.event(
-          [{ nativeEvent: { contentOffset: { y: scrollY } } }],
-          {
-            useNativeDriver: true,
-            listener: (event: { nativeEvent: { contentOffset: { y: number } } }) => {
-              console.log('Scroll event:', event.nativeEvent.contentOffset.y);
-            },
-          }
-        )}
       >
         {renderImageGallery()}
+
+        {renderActionButtons()}
 
         <View style={styles.contentContainer}>
           <Animated.View
@@ -469,7 +487,7 @@ export default function ListingDetailScreen() {
               },
             ]}
           >
-            <Text style={styles.title}>{name}</Text>
+            {renderListingName()}
             {listing.isFeatured && (
               <View style={styles.featuredBadge}>
                 <Text style={styles.featuredText}>⭐ Featured</Text>
@@ -481,7 +499,6 @@ export default function ListingDetailScreen() {
 
           {activeTab === 'details' ? renderDetailsContent() : renderReviewsContent()}
 
-          {/* Book Button */}
           <TouchableOpacity
             style={styles.bookButton}
             onPress={toggleModal}
@@ -492,518 +509,7 @@ export default function ListingDetailScreen() {
         </View>
       </ScrollView>
 
-      {/* Booking Modal */}
-      <Modal
-        animationType="slide"
-        transparent={true}
-        visible={isModalVisible}
-        onRequestClose={toggleModal}
-      >
-        <View style={styles.modalContainer}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Choose Booking Dates</Text>
-
-            {/* Date Picker Placeholder */}
-            <View style={styles.datePickerContainer}>
-              <Text style={styles.datePickerLabel}>Start Date:</Text>
-              <TouchableOpacity
-                style={styles.datePickerButton}
-                onPress={() => console.log('Open Start Date Picker')}
-              >
-                <Text style={styles.datePickerButtonText}>{startDate ? startDate.toDateString() : 'Select Start Date'}</Text>
-              </TouchableOpacity>
-
-              <Text style={styles.datePickerLabel}>End Date:</Text>
-              <TouchableOpacity
-                style={styles.datePickerButton}
-                onPress={() => console.log('Open End Date Picker')}
-              >
-                <Text style={styles.datePickerButtonText}>{endDate ? endDate.toDateString() : 'Select End Date'}</Text>
-              </TouchableOpacity>
-            </View>
-
-            {/* Payment Options Placeholder */}
-            <View style={styles.paymentOptionsContainer}>
-              <Text style={styles.paymentOptionsTitle}>Payment Options</Text>
-              <TouchableOpacity
-                style={styles.paymentOptionButton}
-                onPress={() => console.log('Card Payment Selected')}
-              >
-                <Text style={styles.paymentOptionText}>Pay with Card</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.paymentOptionButton}
-                onPress={() => console.log('Cash on Delivery Selected')}
-              >
-                <Text style={styles.paymentOptionText}>Cash on Delivery</Text>
-              </TouchableOpacity>
-            </View>
-
-            <TouchableOpacity
-              style={styles.closeModalButton}
-              onPress={toggleModal}
-            >
-              <Text style={styles.closeModalButtonText}>Close</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
+      {renderBookingModal()}
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#f8fffe',
-  },
-  scrollView: {
-    flex: 1,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  loadingText: {
-    color: '#fff',
-    fontSize: 18,
-    fontWeight: '600',
-    marginTop: 16,
-  },
-  errorContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 32,
-  },
-  errorText: {
-    color: '#fff',
-    fontSize: 20,
-    fontWeight: '700',
-    textAlign: 'center',
-    marginBottom: 24,
-  },
-  retryButton: {
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    paddingHorizontal: 32,
-    paddingVertical: 16,
-    borderRadius: 30,
-    borderWidth: 2,
-    borderColor: '#fff',
-  },
-  retryButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '700',
-  },
-  notFoundContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#f8fffe',
-  },
-  notFoundText: {
-    fontSize: 20,
-    color: '#666',
-    fontWeight: '600',
-  },
-  imageGalleryContainer: {
-    height: height * 0.5,
-    position: 'relative',
-  },
-  imageContainer: {
-    width: width,
-    height: '100%',
-    position: 'relative',
-  },
-  heroImage: {
-    width: '100%',
-    height: '100%',
-  },
-  imageOverlay: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    height: 100,
-  },
-  imageIndicators: {
-    position: 'absolute',
-    bottom: 20,
-    left: 0,
-    right: 0,
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  indicator: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: 'rgba(255,255,255,0.5)',
-    marginHorizontal: 4,
-  },
-  indicatorActive: {
-    backgroundColor: '#fff',
-    width: 24,
-  },
-  actionButtons: {
-    position: 'absolute',
-    top: 50,
-    right: 16,
-    flexDirection: 'column',
-  },
-  actionButton: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    backgroundColor: 'rgba(255,255,255,0.9)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 8,
-    elevation: 5,
-  },
-  actionButtonText: {
-    fontSize: 20,
-  },
-  contentContainer: {
-    flex: 1,
-    backgroundColor: '#f8fffe',
-    borderTopLeftRadius: 30,
-    borderTopRightRadius: 30,
-    marginTop: -30,
-    paddingTop: 30,
-    paddingHorizontal: 20,
-  },
-  headerSection: {
-    alignItems: 'center',
-    marginBottom: 24,
-  },
-  title: {
-    fontSize: 32,
-    fontWeight: '900',
-    color: '#1a1a1a',
-    textAlign: 'center',
-    marginBottom: 12,
-  },
-  featuredBadge: {
-    backgroundColor: '#FFD700',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    borderWidth: 2,
-    borderColor: '#FFA500',
-  },
-  featuredText: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#B8860B',
-  },
-  tabContainer: {
-    flexDirection: 'row',
-    backgroundColor: '#fff',
-    borderRadius: 25,
-    padding: 4,
-    marginBottom: 24,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 3,
-  },
-  tabButton: {
-    flex: 1,
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    borderRadius: 20,
-    alignItems: 'center',
-  },
-  tabButtonActive: {
-    backgroundColor: '#337914',
-  },
-  tabButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#666',
-  },
-  tabButtonTextActive: {
-    color: '#fff',
-  },
-  tabContent: {
-    flex: 1,
-    minHeight: 400,
-  },
-  cardsContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 24,
-  },
-  priceCard: {
-    flex: 1,
-    marginRight: 8,
-    borderRadius: 20,
-    overflow: 'hidden',
-    elevation: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-  },
-  priceGradient: {
-    padding: 20,
-    alignItems: 'center',
-    position: 'relative',
-  },
-  priceLabel: {
-    fontSize: 12,
-    color: '#B8860B',
-    fontWeight: '600',
-    marginBottom: 4,
-  },
-  priceValue: {
-    fontSize: 24,
-    fontWeight: '900',
-    color: '#fff',
-    textShadowColor: 'rgba(0,0,0,0.3)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 2,
-  },
-  priceAccent: {
-    position: 'absolute',
-    top: 0,
-    right: 0,
-    width: 40,
-    height: 40,
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    borderBottomLeftRadius: 20,
-  },
-  locationCard: {
-    flex: 1,
-    marginLeft: 8,
-    borderRadius: 20,
-    overflow: 'hidden',
-    elevation: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-  },
-  locationGradient: {
-    padding: 20,
-    alignItems: 'center',
-    position: 'relative',
-  },
-  locationIcon: {
-    fontSize: 24,
-    marginBottom: 8,
-  },
-  locationText: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#fff',
-    textAlign: 'center',
-  },
-  locationPulse: {
-    position: 'absolute',
-    top: 20,
-    right: 20,
-    width: 12,
-    height: 12,
-    backgroundColor: '#4CAF50',
-    borderRadius: 6,
-    borderWidth: 2,
-    borderColor: '#fff',
-  },
-  descriptionSection: {
-    backgroundColor: '#fff',
-    padding: 24,
-    borderRadius: 20,
-    marginBottom: 24,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 3,
-  },
-  descriptionTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#1a1a1a',
-    marginBottom: 16,
-  },
-  description: {
-    fontSize: 16,
-    lineHeight: 24,
-    color: '#666',
-  },
-  contactCard: {
-    marginBottom: 40,
-    borderRadius: 25,
-    overflow: 'hidden',
-    elevation: 10,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 5 },
-    shadowOpacity: 0.3,
-    shadowRadius: 10,
-  },
-  contactBlur: {
-    flex: 1,
-  },
-  contactGradient: {
-    padding: 24,
-  },
-  contactTitle: {
-    fontSize: 22,
-    fontWeight: '800',
-    color: '#fff',
-    textAlign: 'center',
-    marginBottom: 20,
-  },
-  contactButtons: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    flexWrap: 'wrap',
-  },
-  contactButton: {
-    margin: 8,
-    borderRadius: 15,
-    overflow: 'hidden',
-    elevation: 5,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 5,
-  },
-  contactButtonGradient: {
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    alignItems: 'center',
-    minWidth: 80,
-  },
-  contactButtonIcon: {
-    fontSize: 20,
-    marginBottom: 4,
-  },
-  contactButtonText: {
-    color: '#fff',
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  bookButton: {
-    backgroundColor: '#337914',
-    paddingVertical: 16,
-    borderRadius: 25,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 16,
-    elevation: 5,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-  },
-  bookButtonText: {
-    color: '#fff',
-    fontSize: 18,
-    fontWeight: '700',
-  },
-  modalContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: 'rgba(0,0,0,0.7)',
-  },
-  modalContent: {
-    width: '90%',
-    backgroundColor: '#fff',
-    borderRadius: 20,
-    padding: 24,
-    elevation: 10,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-  },
-  modalTitle: {
-    fontSize: 22,
-    fontWeight: '700',
-    color: '#1a1a1a',
-    marginBottom: 16,
-    textAlign: 'center',
-  },
-  datePickerContainer: {
-    marginBottom: 24,
-  },
-  datePickerLabel: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: 8,
-  },
-  datePickerButton: {
-    backgroundColor: '#f0f0f0',
-    borderRadius: 10,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    alignItems: 'center',
-    marginBottom: 16,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-  },
-  datePickerButtonText: {
-    fontSize: 16,
-    color: '#333',
-  },
-  paymentOptionsContainer: {
-    marginBottom: 24,
-  },
-  paymentOptionsTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#1a1a1a',
-    marginBottom: 16,
-    textAlign: 'center',
-  },
-  paymentOptionButton: {
-    backgroundColor: '#f0f0f0',
-    borderRadius: 10,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    alignItems: 'center',
-    marginBottom: 16,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-  },
-  paymentOptionText: {
-    fontSize: 16,
-    color: '#333',
-  },
-  closeModalButton: {
-    backgroundColor: '#337914',
-    borderRadius: 10,
-    paddingVertical: 12,
-    alignItems: 'center',
-    marginTop: 16,
-    elevation: 5,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-  },
-  closeModalButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '700',
-  },
-});

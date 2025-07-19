@@ -8,8 +8,13 @@
     "scheme": "syrianago",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
-     "extra": {
-      "EXPO_PUBLIC_API_URL": "https://api.syrianago.com"
+    "extra": {
+      "EXPO_PUBLIC_API_URL": "https://api.syrianago.com",
+      "STRIPE_PUBLISHABLE_KEY": "pk_test_51PHuF7HJidMgnIYBk3s3gYKdn6eUsIdvlP3YIpywZTQBpu4306UmHnoLZGQqbsPMrEfMqvJoUf1AuVihMUEjATfq00Q9XpGTZM",
+      "router": {},
+      "eas": {
+        "projectId": "0bd1add6-7756-4905-873c-50d0bb29f449"
+      }
     },
     "ios": {
       "supportsTablet": true
@@ -19,7 +24,8 @@
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "edgeToEdgeEnabled": true
+      "edgeToEdgeEnabled": true,
+      "package": "com.tanzi22.SyrianaGo"
     },
     "web": {
       "bundler": "metro",

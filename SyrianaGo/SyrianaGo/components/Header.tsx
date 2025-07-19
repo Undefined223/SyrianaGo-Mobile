@@ -8,9 +8,11 @@ const API_URL = process.env.EXPO_PUBLIC_API_URL;
 type Props = {
   category: any;
   listingCount: number;
+  title?: string;
+  subtitle?: string;
 };
 
-export default function Header({ category, listingCount }: Props) {
+export default function Header({ category, listingCount, title, subtitle }: Props) {
   const getImageUri = (imagePath: string) => `${API_URL}/uploads/${imagePath}`;
 
   return (
@@ -27,8 +29,8 @@ export default function Header({ category, listingCount }: Props) {
               <View style={styles.iconGlow} />
             </View>
           )}
-          <Text style={styles.title}>{category?.name?.en || category?.name || 'Category'}</Text>
-          <Text style={styles.subtitle}>{listingCount} amazing listings</Text>
+          <Text style={styles.title}>{title || category?.name?.en || category?.name || 'Category'}</Text>
+          <Text style={styles.subtitle}>{subtitle || `${listingCount} amazing listings`}</Text>
         </BlurView>
       </LinearGradient>
     </Animated.View>

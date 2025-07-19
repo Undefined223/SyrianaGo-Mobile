@@ -17,6 +17,7 @@ import { useCategoryListings } from '@/hooks/useCategoryListings';
 import Constants from 'expo-constants';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
+import { useLanguage } from '@/app/context/LanguageContext';
 
 const API_URL = Constants.expoConfig?.extra?.EXPO_PUBLIC_API_URL;
 const { width, height } = Dimensions.get('window');
@@ -24,6 +25,7 @@ const { width, height } = Dimensions.get('window');
 export default function CategoryDetailScreen() {
   const { id } = useLocalSearchParams();
   const router = useRouter();
+  const { t, language } = useLanguage();
   const [imageErrors, setImageErrors] = useState<Set<string>>(new Set());
 
   // Custom hook usage
@@ -79,7 +81,7 @@ export default function CategoryDetailScreen() {
 
   const renderListingCard = ({ item: listing, index }: { item: any, index: number }) => {
     const cardScale = cardAnimations[listing._id] || new Animated.Value(1);
-    
+
     return (
       <Animated.View
         style={[
@@ -128,10 +130,10 @@ export default function CategoryDetailScreen() {
             
             <View style={styles.cardContent}>
               <Text style={styles.listingTitle} numberOfLines={2}>
-                {listing.title || listing.name?.en || listing.name}
+                {listing.name?.[language] || listing.name || t('unknown_listing')}
               </Text>
               <Text style={styles.listingDesc} numberOfLines={2}>
-                {listing.description?.en || listing.description || 'Discover amazing deals...'}
+                {listing.description?.[language] || listing.description || t('no_description')}
               </Text>
               
               <View style={styles.cardFooter}>
@@ -142,7 +144,7 @@ export default function CategoryDetailScreen() {
                 )}
                 <View style={styles.categoryBadge}>
                   <Text style={styles.categoryBadgeText}>
-                    {subcategories.find(s => s._id === listing.subcategory)?.name?.en || 'General'}
+                    {subcategories.find(s => s._id === listing.subcategory)?.name?.[language] || t('general')}
                   </Text>
                 </View>
               </View>
@@ -180,11 +182,11 @@ export default function CategoryDetailScreen() {
           )}
           
           <Text style={styles.categoryTitle}>
-            {category?.name?.en || category?.name || 'Category'}
+            {category?.name?.[language] || category?.name || t('category')}
           </Text>
           
           <Text style={styles.categorySubtitle}>
-            {filteredListings.length} amazing listings
+            {filteredListings.length} {t('amazing_listings')}
           </Text>
         </BlurView>
       </LinearGradient>
@@ -193,7 +195,7 @@ export default function CategoryDetailScreen() {
 
   const renderSubcategoryFilter = () => (
     <View style={styles.filterContainer}>
-      <Text style={styles.filterTitle}>✨ Filter by Category</Text>
+      <Text style={styles.filterTitle}>{t('filter_by_category')}</Text>
       <ScrollView 
         horizontal 
         showsHorizontalScrollIndicator={false}
@@ -208,7 +210,7 @@ export default function CategoryDetailScreen() {
             style={styles.filterChipGradient}
           >
             <Text style={[styles.filterChipText, !selectedSubcategory && styles.filterChipTextActive]}>
-              🌟 All
+              🌟 {t('all')}
             </Text>
           </LinearGradient>
         </TouchableOpacity>
@@ -224,7 +226,7 @@ export default function CategoryDetailScreen() {
               style={styles.filterChipGradient}
             >
               <Text style={[styles.filterChipText, selectedSubcategory === sub._id && styles.filterChipTextActive]}>
-                {sub.name?.en || sub.name}
+                {sub.name?.[language] || sub.name}
               </Text>
             </LinearGradient>
           </TouchableOpacity>
@@ -238,24 +240,24 @@ export default function CategoryDetailScreen() {
       return (
         <View style={styles.loadingFooter}>
           <ActivityIndicator size="large" color="#017b3e" />
-          <Text style={styles.loadingText}>Loading more amazing listings...</Text>
+          <Text style={styles.loadingText}>{t('loading_more_listings')}</Text>
         </View>
       );
     }
-    
+
     if (filteredListings.length === 0 && !loading) {
       return (
         <View style={styles.endMessage}>
-          <Text style={styles.endMessageText}>📋 No listings found</Text>
-          <Text style={styles.endMessageSubtext}>Try adjusting your filters</Text>
+          <Text style={styles.endMessageText}>📋 {t('no_listings_found')}</Text>
+          <Text style={styles.endMessageSubtext}>{t('try_adjusting_filters')}</Text>
         </View>
       );
     }
-    
+
     return (
       <View style={styles.endMessage}>
-        <Text style={styles.endMessageText}>🎉 You've seen all listings!</Text>
-        <Text style={styles.endMessageSubtext}>Check back later for more</Text>
+        <Text style={styles.endMessageText}>🎉 {t('seen_all_listings')}</Text>
+        <Text style={styles.endMessageSubtext}>{t('check_back_later')}</Text>
       </View>
     );
   };
@@ -264,7 +266,7 @@ export default function CategoryDetailScreen() {
     return (
       <LinearGradient colors={['#017b3e', '#4CAF50']} style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#fff" />
-        <Text style={styles.loadingMainText}>Loading awesome content...</Text>
+        <Text style={styles.loadingMainText}>{t('loading_content')}</Text>
       </LinearGradient>
     );
   }
@@ -272,9 +274,9 @@ export default function CategoryDetailScreen() {
   if (error) {
     return (
       <LinearGradient colors={['#e74c3c', '#c0392b']} style={styles.errorContainer}>
-        <Text style={styles.errorText}>😔 Oops! Something went wrong</Text>
+        <Text style={styles.errorText}>😔 {t('something_went_wrong')}</Text>
         <TouchableOpacity style={styles.retryButton} onPress={handleRefresh}>
-          <Text style={styles.retryButtonText}>Try Again</Text>
+          <Text style={styles.retryButtonText}>{t('try_again')}</Text>
         </TouchableOpacity>
       </LinearGradient>
     );

@@ -12,7 +12,6 @@ import {
   Animated,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { BlurView } from 'expo-blur';
 import { useReviews } from '@/hooks/useReviews';
 
 const { width } = Dimensions.get('window');
@@ -84,19 +83,32 @@ const Reviews: React.FC<ReviewsProps> = ({ listingId, user }) => {
   };
 
   const handleSubmitReview = async () => {
+    console.log('handleSubmitReview called');
+    
     if (!newReview.comment.trim()) {
+      console.log('Review comment is empty');
       Alert.alert('Error', 'Please write a review comment');
       return;
     }
 
+    console.log('Submitting review:', newReview);
+
     try {
       await submitReview(newReview);
+      console.log('Review submitted successfully');
       setNewReview({ rating: 5, comment: '' });
       setShowReviewForm(false);
       Alert.alert('Success', 'Your review has been submitted!');
     } catch (err) {
+      console.error('Error submitting review:', err);
       Alert.alert('Error', err instanceof Error ? err.message : 'Failed to submit review');
     }
+  };
+
+  const handleCancelReview = () => {
+    console.log('handleCancelReview called');
+    setShowReviewForm(false);
+    setNewReview({ rating: 5, comment: '' });
   };
 
   const renderRatingDistribution = () => {
@@ -248,85 +260,81 @@ const Reviews: React.FC<ReviewsProps> = ({ listingId, user }) => {
                 </LinearGradient>
               </TouchableOpacity>
             ) : (
-              <BlurView intensity={20} style={styles.reviewFormBlur}>
-                <LinearGradient
-                  colors={['rgba(255,255,255,0.95)', 'rgba(248,249,250,0.95)']}
-                  style={styles.reviewFormGradient}
-                >
-                  <Text style={styles.reviewFormTitle}>Share Your Experience</Text>
-                  
-                  <View style={styles.ratingSelector}>
-                    <Text style={styles.ratingLabel}>Your Rating:</Text>
-                    <View style={styles.ratingButtons}>
-                      {[1, 2, 3, 4, 5].map((rating) => (
-                        <TouchableOpacity
-                          key={rating}
-                          style={[
-                            styles.ratingButton,
-                            newReview.rating === rating && styles.ratingButtonActive
-                          ]}
-                          onPress={() => setNewReview(prev => ({ ...prev, rating }))}
-                        >
-                          <Text
-                            style={[
-                              styles.ratingButtonText,
-                              newReview.rating === rating && styles.ratingButtonTextActive
-                            ]}
-                          >
-                            {rating}⭐
-                          </Text>
-                        </TouchableOpacity>
-                      ))}
-                    </View>
-                  </View>
-
-                  <TextInput
-                    style={styles.commentInput}
-                    placeholder="Tell others about your experience..."
-                    placeholderTextColor="#999"
-                    value={newReview.comment}
-                    onChangeText={(text) => setNewReview(prev => ({ ...prev, comment: text }))}
-                    multiline
-                    numberOfLines={4}
-                    textAlignVertical="top"
-                  />
-
-                  {error && (
-                    <Text style={styles.errorText}>{error}</Text>
-                  )}
-
-                  <View style={styles.formButtons}>
-                    <TouchableOpacity
-                      style={styles.cancelButton}
-                      onPress={() => {
-                        setShowReviewForm(false);
-                        setNewReview({ rating: 5, comment: '' });
-                      }}
-                      activeOpacity={0.8}
-                    >
-                      <Text style={styles.cancelButtonText}>Cancel</Text>
-                    </TouchableOpacity>
-                    
-                    <TouchableOpacity
-                      style={[styles.submitButton, submitting && styles.submitButtonDisabled]}
-                      onPress={handleSubmitReview}
-                      disabled={submitting}
-                      activeOpacity={0.8}
-                    >
-                      <LinearGradient
-                        colors={submitting ? ['#94a3b8', '#64748b'] : ['#337914', '#2d6b12']}
-                        style={styles.submitButtonGradient}
+              <View style={styles.reviewFormContainer}>
+                <Text style={styles.reviewFormTitle}>Share Your Experience</Text>
+                
+                <View style={styles.ratingSelector}>
+                  <Text style={styles.ratingLabel}>Your Rating:</Text>
+                  <View style={styles.ratingButtons}>
+                    {[1, 2, 3, 4, 5].map((rating) => (
+                      <TouchableOpacity
+                        key={rating}
+                        style={[
+                          styles.ratingButton,
+                          newReview.rating === rating && styles.ratingButtonActive
+                        ]}
+                        onPress={() => {
+                          console.log('Rating button pressed:', rating);
+                          setNewReview(prev => ({ ...prev, rating }));
+                        }}
                       >
-                        {submitting ? (
-                          <ActivityIndicator size="small" color="#fff" />
-                        ) : (
-                          <Text style={styles.submitButtonText}>Submit Review</Text>
-                        )}
-                      </LinearGradient>
-                    </TouchableOpacity>
+                        <Text
+                          style={[
+                            styles.ratingButtonText,
+                            newReview.rating === rating && styles.ratingButtonTextActive
+                          ]}
+                        >
+                          {rating}⭐
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
                   </View>
-                </LinearGradient>
-              </BlurView>
+                </View>
+
+                <TextInput
+                  style={styles.commentInput}
+                  placeholder="Tell others about your experience..."
+                  placeholderTextColor="#999"
+                  value={newReview.comment}
+                  onChangeText={(text) => setNewReview(prev => ({ ...prev, comment: text }))}
+                  multiline
+                  numberOfLines={4}
+                  textAlignVertical="top"
+                />
+
+                {error && (
+                  <Text style={styles.errorText}>{error}</Text>
+                )}
+
+                <View style={styles.formButtons}>
+                  <TouchableOpacity
+                    style={styles.cancelButton}
+                    onPress={() => {
+                      console.log('Cancel button pressed!');
+                      handleCancelReview();
+                    }}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={styles.cancelButtonText}>Cancel</Text>
+                  </TouchableOpacity>
+                  
+                  <TouchableOpacity
+                    style={styles.submitButtonSimple}
+                    onPress={() => {
+                      console.log('Submit button pressed!');
+                      handleSubmitReview();
+                    }}
+                    disabled={submitting}
+                    activeOpacity={0.8}
+                  >
+                    {submitting ? (
+                      <ActivityIndicator size="small" color="#fff" />
+                    ) : (
+                      <Text style={styles.submitButtonText}>Submit Review</Text>
+                    )}
+                  </TouchableOpacity>
+                </View>
+              </View>
             )}
           </Animated.View>
         ) : (
@@ -567,7 +575,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#fff',
   },
-  reviewFormBlur: {
+  reviewFormContainer: {
     borderRadius: 20,
     overflow: 'hidden',
     elevation: 8,
@@ -575,8 +583,7 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 10,
-  },
-  reviewFormGradient: {
+    backgroundColor: '#fff',
     padding: 24,
   },
   reviewFormTitle: {
@@ -652,17 +659,13 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#666',
   },
-  submitButton: {
+  submitButtonSimple: {
     flex: 1,
-    borderRadius: 12,
-    overflow: 'hidden',
-  },
-  submitButtonDisabled: {
-    opacity: 0.7,
-  },
-  submitButtonGradient: {
     paddingVertical: 16,
+    borderRadius: 12,
+    backgroundColor: '#337914',
     alignItems: 'center',
+    justifyContent: 'center',
   },
   submitButtonText: {
     fontSize: 16,

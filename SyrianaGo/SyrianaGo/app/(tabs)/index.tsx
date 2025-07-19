@@ -1,5 +1,6 @@
 import React from 'react';
 import { StyleSheet, View, ScrollView, StatusBar, ActivityIndicator } from 'react-native';
+import { useLanguage } from '../context/LanguageContext';
 
 import { HelloWave } from '@/components/HelloWave';
 import { ThemedText } from '@/components/ThemedText';
@@ -9,6 +10,7 @@ import CategoryGrid from '@/components/CategoryGrid';
 import { useCategories } from '@/hooks/useCategories';
 
 export default function HomeScreen() {
+  const { t } = useLanguage();
   const { categories, loading, error } = useCategories();
 
   return (
@@ -19,11 +21,11 @@ export default function HomeScreen() {
       <View style={styles.header}>
         <View style={styles.headerContent}>
           <View style={styles.titleContainer}>
-            <ThemedText style={styles.welcomeText}>Welcome to Syria</ThemedText>
+            <ThemedText style={styles.welcomeText}>{t('welcome_to_syria')}</ThemedText>
             <HelloWave />
           </View>
           <ThemedText style={styles.subtitleText}>
-            Discover ancient wonders and timeless beauty
+            {t('discover_ancient_wonders')}
           </ThemedText>
         </View>
       </View>
@@ -43,9 +45,9 @@ export default function HomeScreen() {
           {/* Categories Section */}
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
-              <ThemedText style={styles.sectionTitle}>Explore Categories</ThemedText>
+              <ThemedText style={styles.sectionTitle}>{t('explore_categories')}</ThemedText>
               <ThemedText style={styles.sectionDescription}>
-                Find everything you need for your Syrian adventure
+                {t('find_everything')}
               </ThemedText>
             </View>
             {loading ? (
@@ -60,19 +62,19 @@ export default function HomeScreen() {
           {/* Featured Stats */}
           <View style={styles.section}>
             <View style={styles.statsCard}>
-              <ThemedText style={styles.statsTitle}>Syria at a Glance</ThemedText>
+              <ThemedText style={styles.statsTitle}>{t('syria_at_a_glance')}</ThemedText>
               <View style={styles.statsGrid}>
                 <View style={styles.statItem}>
                   <ThemedText style={styles.statNumber}>5000+</ThemedText>
-                  <ThemedText style={styles.statLabel}>Years of History</ThemedText>
+                  <ThemedText style={styles.statLabel}>{t('years_of_history')}</ThemedText>
                 </View>
                 <View style={styles.statItem}>
                   <ThemedText style={styles.statNumber}>6</ThemedText>
-                  <ThemedText style={styles.statLabel}>UNESCO Sites</ThemedText>
+                  <ThemedText style={styles.statLabel}>{t('unesco_sites')}</ThemedText>
                 </View>
                 <View style={styles.statItem}>
                   <ThemedText style={styles.statNumber}>1000+</ThemedText>
-                  <ThemedText style={styles.statLabel}>Destinations</ThemedText>
+                  <ThemedText style={styles.statLabel}>{t('destinations')}</ThemedText>
                 </View>
               </View>
             </View>
@@ -80,16 +82,16 @@ export default function HomeScreen() {
 
           {/* Footer */}
           <View style={styles.footer}>
-            <ThemedText style={styles.footerTitle}>Syria Tourism Guide</ThemedText>
+            <ThemedText style={styles.footerTitle}>{t('syria_tourism_guide')}</ThemedText>
             <ThemedText style={styles.footerText}>
-              Your gateway to exploring Syria's rich heritage and natural beauty
+              {t('gateway_to_exploring')}
             </ThemedText>
             <View style={styles.footerLinks}>
-              <ThemedText style={styles.footerLink}>About</ThemedText>
+              <ThemedText style={styles.footerLink}>{t('about')}</ThemedText>
               <ThemedText style={styles.footerDot}>•</ThemedText>
-              <ThemedText style={styles.footerLink}>Terms</ThemedText>
+              <ThemedText style={styles.footerLink}>{t('terms')}</ThemedText>
               <ThemedText style={styles.footerDot}>•</ThemedText>
-              <ThemedText style={styles.footerLink}>Contact</ThemedText>
+              <ThemedText style={styles.footerLink}>{t('contact')}</ThemedText>
             </View>
           </View>
         </View>

@@ -10,7 +10,6 @@ export function useCategories() {
     getAllCategories()
       .then((data) => {
         // Log the response to debug
-        console.log('Fetched categories:', data);
         // Try common response shapes
         const arr = Array.isArray(data)
           ? data
@@ -21,7 +20,7 @@ export function useCategories() {
           : [];
         setCategories(
           arr.map((cat: any) => ({
-            name: cat.name?.en || cat.name,
+            name: cat.name,
             icon: cat.icon || 'hotel',
             route: `/category/${cat._id}`,
             _id: cat._id,

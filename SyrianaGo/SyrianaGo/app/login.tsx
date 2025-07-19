@@ -1,10 +1,10 @@
 import React, { useState, useContext, useRef } from 'react';
-import { 
-  View, 
-  Text, 
-  TextInput, 
-  TouchableOpacity, 
-  StyleSheet, 
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  StyleSheet,
   Animated,
   Dimensions,
   StatusBar,
@@ -14,6 +14,8 @@ import {
 } from 'react-native';
 import { AuthContext } from './context/AuthContext';
 import { useRouter } from 'expo-router';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { verify2FA } from '@/api/https/auth.https';
 
 const { width } = Dimensions.get('window');
 
@@ -22,10 +24,14 @@ export default function LoginScreen() {
   const router = useRouter();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [error, setError] = useState(null);
+  const [error, setError] = useState<string | null>(null); // Fixed type for error state
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-  
+  const [twoFactorRequired, setTwoFactorRequired] = useState(false);
+  const [twoFactorCode, setTwoFactorCode] = useState('');
+  const [userEmail, setUserEmail] = useState("");
+  const [show2FA, setShow2FA] = useState(false);
+
   // Use useRef for animation values to prevent recreation
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(50)).current;
@@ -47,6 +53,8 @@ export default function LoginScreen() {
     ]).start();
   }, [fadeAnim, slideAnim]);
 
+  const { login, setUser, setUserToken } = useContext(AuthContext);
+
   const handleLogin = async () => {
     if (!email || !password) {
       setError('Please fill in all fields');
@@ -56,29 +64,63 @@ export default function LoginScreen() {
     setIsLoading(true);
     setError(null);
 
-    // Button press animation
-    Animated.sequence([
-      Animated.timing(buttonScale, {
-        toValue: 0.95,
-        duration: 100,
-        useNativeDriver: true,
-      }),
-      Animated.timing(buttonScale, {
-        toValue: 1,
-        duration: 100,
-        useNativeDriver: true,
-      }),
-    ]).start();
-
     try {
-      if (authContext) {
-        await authContext.login({ email, password });
-        router.push('/'); // Adjusted navigation path
+      const result = await login({ email, password });
+
+      if (!result) {
+        throw new Error('Login failed: No response from server');
+      }
+
+      console.log('Login response:', result);
+
+      if (result.twoFactorRequired) {
+        setUserEmail(email);
+        setShow2FA(true);
       } else {
-        throw new Error('AuthContext is undefined');
+        router.push('/');
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : null); // Fixed type error
+      const errorMessage = err instanceof Error ? err.message : 'Login failed';
+      alert(errorMessage);
+      setError(errorMessage);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleVerify2FA = async () => {
+    if (!twoFactorCode) {
+      setError('Please enter the 2FA code');
+      return;
+    }
+
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const payload = { email: userEmail, code: twoFactorCode };
+      console.log('2FA Request Payload:', payload);
+
+      const response: { accessToken?: string; user?: object } = await verify2FA(payload);
+
+      console.log('2FA response:', response);
+
+      if (response.accessToken && response.user) {
+        await AsyncStorage.setItem('userToken', response.accessToken);
+        setUserToken(response.accessToken);
+        await AsyncStorage.setItem('userData', JSON.stringify(response.user));
+        setUser(response.user);
+        router.push('/');
+      } else {
+        throw new Error('Invalid 2FA code');
+      }
+    } catch (err) {
+      if (err.response) {
+        console.error('2FA Error Response:', err.response.data);
+      }
+      const errorMessage = err instanceof Error ? err.message : 'Verification failed';
+      console.error('2FA Error:', errorMessage);
+      setError(errorMessage);
     } finally {
       setIsLoading(false);
     }
@@ -95,114 +137,135 @@ export default function LoginScreen() {
   };
 
   return (
-    <KeyboardAvoidingView 
-      style={styles.container} 
+    <KeyboardAvoidingView
+      style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
       <StatusBar barStyle="dark-content" backgroundColor="#f5f5f5" />
-      
-      <Animated.View 
-        style={[
-          styles.loginCard,
-          {
-            opacity: fadeAnim,
-            transform: [{ translateY: slideAnim }],
-          },
-        ]}
-      >
-        {/* Header */}
-        <View style={styles.header}>
-          <Text style={styles.title}>Welcome Back</Text>
-          <Text style={styles.subtitle}>Sign in to your account</Text>
+
+      {show2FA ? (
+        <View style={styles.twoFactorContainer}>
+          <Text style={styles.twoFactorTitle}>Enter 2FA Code</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="Enter your 2FA code"
+            placeholderTextColor="#a0a0a0"
+            value={twoFactorCode}
+            onChangeText={setTwoFactorCode}
+            keyboardType="number-pad"
+          />
+          <TouchableOpacity
+            style={styles.loginButton}
+            onPress={handleVerify2FA}
+            disabled={isLoading}
+          >
+            <Text style={styles.loginButtonText}>{isLoading ? 'Verifying...' : 'Verify'}</Text>
+          </TouchableOpacity>
         </View>
-
-        {/* Error Message */}
-        {error && (
-          <View style={styles.errorContainer}>
-            <Text style={styles.errorText}>{error}</Text>
+      ) : (
+        <Animated.View
+          style={[
+            styles.loginCard,
+            {
+              opacity: fadeAnim,
+              transform: [{ translateY: slideAnim }],
+            },
+          ]}
+        >
+          {/* Header */}
+          <View style={styles.header}>
+            <Text style={styles.title}>Welcome Back</Text>
+            <Text style={styles.subtitle}>Sign in to your account</Text>
           </View>
-        )}
 
-        {/* Form */}
-        <View style={styles.form}>
-          <View style={styles.inputContainer}>
-            <Text style={styles.inputLabel}>Email</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="Enter your email"
-              placeholderTextColor="#a0a0a0"
-              value={email}
-              onChangeText={setEmail}
-              keyboardType="email-address"
-              autoCapitalize="none"
-              autoComplete="email"
-            />
-            {email && !validateEmail(email) && (
-              <Text style={styles.validationError}>Please enter a valid email</Text>
+          {/* Error Message */}
+          {error && (
+            <View style={styles.errorContainer}>
+              <Text style={styles.errorText}>{error}</Text>
+            </View>
+          )}
+
+          {/* Form */}
+          <View style={styles.form}>
+            <View style={styles.inputContainer}>
+              <Text style={styles.inputLabel}>Email</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="Enter your email"
+                placeholderTextColor="#a0a0a0"
+                value={email}
+                onChangeText={setEmail}
+                keyboardType="email-address"
+                autoCapitalize="none"
+                autoComplete="email"
+              />
+              {email && !validateEmail(email) && (
+                <Text style={styles.validationError}>Please enter a valid email</Text>
+              )}
+            </View>
+
+            <View style={styles.inputContainer}>
+              <Text style={styles.inputLabel}>Password</Text>
+              <View style={styles.passwordContainer}>
+                <TextInput
+                  style={[styles.input, styles.passwordInput]}
+                  placeholder="Enter your password"
+                  placeholderTextColor="#a0a0a0"
+                  secureTextEntry={!showPassword}
+                  value={password}
+                  onChangeText={setPassword}
+                  autoComplete="password"
+                />
+                <TouchableOpacity
+                  style={styles.eyeIcon}
+                  onPress={togglePasswordVisibility}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                >
+                  <Text style={styles.eyeIconText}>
+                    {showPassword ? 'Hide' : 'Show'}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            <TouchableOpacity style={styles.forgotPassword}>
+              <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
+            </TouchableOpacity>
+
+            <Animated.View style={{ transform: [{ scale: buttonScale }] }}>
+              <TouchableOpacity
+                style={[
+                  styles.loginButton,
+                  isLoading && styles.loginButtonDisabled,
+                ]}
+                onPress={handleLogin}
+                disabled={isLoading}
+              >
+                <Text style={styles.loginButtonText}>
+                  {isLoading ? 'Signing In...' : 'Sign In'}
+                </Text>
+              </TouchableOpacity>
+            </Animated.View>
+
+            {/* Loading Indicator */}
+            {isLoading && (
+              <View style={styles.loadingContainer}>
+                <View style={styles.loadingDot} />
+                <View style={[styles.loadingDot, { marginLeft: 8 }]} />
+                <View style={[styles.loadingDot, { marginLeft: 8 }]} />
+              </View>
             )}
           </View>
 
-          <View style={styles.inputContainer}>
-            <Text style={styles.inputLabel}>Password</Text>
-            <View style={styles.passwordContainer}>
-              <TextInput
-                style={[styles.input, styles.passwordInput]}
-                placeholder="Enter your password"
-                placeholderTextColor="#a0a0a0"
-                secureTextEntry={!showPassword}
-                value={password}
-                onChangeText={setPassword}
-                autoComplete="password"
-              />
-              <TouchableOpacity
-                style={styles.eyeIcon}
-                onPress={togglePasswordVisibility}
-                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-              >
-                <Text style={styles.eyeIconText}>
-                  {showPassword ? 'Hide' : 'Show'}
-                </Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-
-          <TouchableOpacity style={styles.forgotPassword}>
-            <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
-          </TouchableOpacity>
-
-          <Animated.View style={{ transform: [{ scale: buttonScale }] }}>
-            <TouchableOpacity
-              style={[
-                styles.loginButton,
-                isLoading && styles.loginButtonDisabled,
-              ]}
-              onPress={handleLogin}
-              disabled={isLoading}
-            >
-              <Text style={styles.loginButtonText}>
-                {isLoading ? 'Signing In...' : 'Sign In'}
-              </Text>
+          {/* Footer */}
+          <View style={styles.footer}>
+            <Text style={styles.footerText}>Don't have an account? </Text>
+            <TouchableOpacity onPress={() => router.push('/register')}>
+              <Text style={styles.signUpText}>Sign Up</Text>
             </TouchableOpacity>
-          </Animated.View>
-
-          {/* Loading Indicator */}
-          {isLoading && (
-            <View style={styles.loadingContainer}>
-              <View style={styles.loadingDot} />
-              <View style={[styles.loadingDot, { marginLeft: 8 }]} />
-              <View style={[styles.loadingDot, { marginLeft: 8 }]} />
-            </View>
-          )}
-        </View>
-
-        {/* Footer */}
-        <View style={styles.footer}>
-          <Text style={styles.footerText}>Don't have an account? </Text>
-          <TouchableOpacity onPress={() => router.push('/register')}>
-            <Text style={styles.signUpText}>Sign Up</Text>
-          </TouchableOpacity>
-        </View>
-      </Animated.View>
+          </View>
+        </Animated.View>
+      )}
     </KeyboardAvoidingView>
   );
 }
@@ -357,5 +420,18 @@ const styles = StyleSheet.create({
     color: '#017b3e',
     fontSize: 14,
     fontWeight: 'bold',
+  },
+  twoFactorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    paddingHorizontal: 30,
+    paddingVertical: 40,
+  },
+  twoFactorTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#017b3e',
+    marginBottom: 16,
+    textAlign: 'center',
   },
 });

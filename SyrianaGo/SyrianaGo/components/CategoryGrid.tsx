@@ -1,14 +1,15 @@
-import React from 'react';
+import React, { useContext } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
 import { FontAwesome5 } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import Constants from 'expo-constants';
+import { LanguageContext } from '@/app/context/LanguageContext';
 
 const API_URL = Constants.expoConfig?.extra?.EXPO_PUBLIC_API_URL;
 
 interface Category {
   _id: string;
-  name: string;
+  name: object;
   icon?: string;
   route: string;
 }
@@ -19,6 +20,7 @@ interface CategoryGridProps {
 
 export default function CategoryGrid({ categories }: CategoryGridProps) {
   const router = useRouter();
+  const { language } = useContext(LanguageContext);
 
   const handlePress = (category: Category) => {
     let finalRoute = '';
@@ -55,7 +57,7 @@ export default function CategoryGrid({ categories }: CategoryGridProps) {
                   <FontAwesome5 name="hotel" size={24} color="#017b3e" />
                 )}
               </View>
-              <Text style={styles.label}>{cat.name}</Text>
+              <Text style={styles.label}>{cat.name[language]}</Text>
             </View>
           </TouchableOpacity>
         </View>

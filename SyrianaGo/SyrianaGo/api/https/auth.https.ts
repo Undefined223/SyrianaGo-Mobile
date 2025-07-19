@@ -22,24 +22,19 @@ interface User {
 
 export const loginUser = async (
   credentials: LoginCredentials
-): Promise<{ token: string; user: User }> => {
+): Promise<{ accessToken?: string; user?: User; twoFactorRequired?: boolean }> => {
   try {
     console.log('Login request:', credentials);
     const res = await axiosInstance.post('/auth/login', credentials);
 
     console.log('Login response:', res.data);
-    const token = res.data.accessToken; // Corrected property name
-    const user = res.data.user;
-
-    await AsyncStorage.setItem('userToken', token);
-    await AsyncStorage.setItem('userData', JSON.stringify(user));
-
-    return { token, user };
+    return res.data; // Ensure the response includes all expected properties
   } catch (error: any) {
     console.error('Login error:', error.response?.data || error);
     throw error.response?.data?.message || 'Login failed';
   }
 };
+
 
 export const registerUser = async (
   payload: RegisterPayload
@@ -183,12 +178,12 @@ export const removeFromWishlist = async (listingId: string): Promise<any> => {
 };
 
 // 2FA
-const verify2FA = async ({ email, code }: { email: string; code: string }): Promise<any> => {
+export const verify2FA = async ({ email, code }: { email: string; code: string }): Promise<any> => {
   const res = await axiosInstance.post(`/auth/2fa`, { email, code });
   return res.data;
 };
 
-const toggle2FA = async () => {
+export const toggle2FA = async () => {
   const res = await axiosInstance.post(`/auth/toggle-2fa`);
   return res.data;
 };

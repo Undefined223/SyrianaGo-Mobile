@@ -1,54 +1,32 @@
 import { StyleSheet, Text, View, FlatList, Image, TouchableOpacity, SafeAreaView, StatusBar, Dimensions } from 'react-native';
-import React, { useEffect, useState } from 'react';
-import { getWishlist, removeFromWishlist } from '@/api/https/auth.https';
-import Constants from 'expo-constants';
+import React from 'react';
+import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { useNavigation } from 'expo-router';
+import { useLanguage } from '../context/LanguageContext';
+import { useWishlist } from '@/hooks/useWishlist';
+import { Listing } from '@/types/listing';
+import Constants from 'expo-constants';
 
 const { width } = Dimensions.get('window');
 
 export default function Wishlist() {
-  const [wishlist, setWishlist] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-  const navigation = useNavigation();
+  const { wishlist, loading, error, remove } = useWishlist();
+  const router = useRouter();
+  const { t } = useLanguage();
 
-  useEffect(() => {
-    const fetchWishlist = async () => {
-      setLoading(true);
-      try {
-        const data = await getWishlist();
-        setWishlist(data);
-      } catch (err) {
-        console.error('Error fetching wishlist:', err);
-        setError('Failed to load wishlist');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchWishlist();
-  }, []);
-
-  const handleRemove = async (listingId) => {
-    try {
-      await removeFromWishlist(listingId);
-      setWishlist((prev) => prev.filter((item) => item._id !== listingId));
-    } catch (err) {
-      console.error('Error removing item from wishlist:', err);
-      setError('Failed to remove item');
-    }
+  const handleRemove = async (listingId: string) => {
+    await remove(listingId);
   };
 
   const API_URL = Constants.expoConfig?.extra?.EXPO_PUBLIC_API_URL;
 
-  const renderItem = ({ item, index }) => (
+  const renderItem = ({ item, index }: { item: Listing; index: number }) => (
     <View style={styles.cardContainer}>
       <View style={styles.card}>
         <View style={styles.imageContainer}>
-          <Image 
-            source={{ uri: `${API_URL}/uploads/${item.images[0]}` }} 
-            style={styles.image} 
+          <Image
+            source={{ uri: `${API_URL}/uploads/${item.images[0]}` }}
+            style={styles.image}
             resizeMode="cover"
           />
 
@@ -56,22 +34,22 @@ export default function Wishlist() {
             <Ionicons name="heart" size={20} color="#ff6b6b" />
           </View>
         </View>
-        
+
         <View style={styles.info}>
           <Text style={styles.name} numberOfLines={2}>{item.name.en}</Text>
-          
+
           <View style={styles.detailsContainer}>
             <View style={styles.priceContainer}>
               <Text style={styles.price}>${item.pricePerDay}</Text>
-              <Text style={styles.priceLabel}>/day</Text>
+              <Text style={styles.priceLabel}>/ {t('price_per_day')}</Text>
             </View>
-            
+
             <View style={styles.ratingContainer}>
               <Ionicons name="star" size={14} color="#FFD700" />
               <Text style={styles.ratingText}>4.8</Text>
             </View>
           </View>
-          
+
           <View style={styles.actionContainer}>
             <TouchableOpacity
               style={styles.removeButton}
@@ -79,15 +57,15 @@ export default function Wishlist() {
               activeOpacity={0.8}
             >
               <Ionicons name="trash-outline" size={16} color="#fff" />
-              <Text style={styles.removeButtonText}>Remove</Text>
+              <Text style={styles.removeButtonText}>{t('remove')}</Text>
             </TouchableOpacity>
-            
-            <TouchableOpacity 
-              style={styles.viewButton} 
-              onPress={() => navigation.navigate('listing/[id]', { id: item._id })}
+
+            <TouchableOpacity
+              style={styles.viewButton}
+              onPress={() => router.push(`/listing/${item._id}`)}
               activeOpacity={0.8}
             >
-              <Text style={styles.viewButtonText}>View Details</Text>
+              <Text style={styles.viewButtonText}>{t('view_details')}</Text>
               <Ionicons name="arrow-forward" size={16} color="#2E7D32" />
             </TouchableOpacity>
           </View>
@@ -102,27 +80,28 @@ export default function Wishlist() {
         <View style={styles.headerContent}>
           <View style={styles.headerTop}>
             <View>
-              <Text style={styles.headerTitle}>My Wishlist</Text>
+              <Text style={styles.headerTitle}>{t('wishlist')}</Text>
               <Text style={styles.headerSubtitle}>
-                {wishlist.length} {wishlist.length === 1 ? 'item' : 'items'} saved
+                {wishlist.length} {wishlist.length === 1 ? t('item') : t('items')} {t('saved')}
               </Text>
+
             </View>
             <View style={styles.headerIcon}>
               <Ionicons name="heart" size={32} color="#2E7D32" />
             </View>
           </View>
-          
+
           <View style={styles.statsContainer}>
             <View style={styles.statItem}>
               <Text style={styles.statNumber}>{wishlist.length}</Text>
-              <Text style={styles.statLabel}>Items</Text>
+              <Text style={styles.statLabel}>{t('items')}</Text>
             </View>
             <View style={styles.statDivider} />
             <View style={styles.statItem}>
               <Text style={styles.statNumber}>
                 ${wishlist.reduce((sum, item) => sum + item.pricePerDay, 0)}
               </Text>
-              <Text style={styles.statLabel}>Total Value</Text>
+              <Text style={styles.statLabel}>{t('total_value')}</Text>
             </View>
           </View>
         </View>
@@ -137,12 +116,10 @@ export default function Wishlist() {
           <Ionicons name="heart-outline" size={100} color="#66BB6A" />
           <View style={styles.emptyIconDecoration} />
         </View>
-        <Text style={styles.emptyTitle}>Your wishlist is empty</Text>
-        <Text style={styles.emptySubtitle}>
-          Discover amazing items and save your favorites here
-        </Text>
+        <Text style={styles.emptyTitle}>{t('wishlist_empty')}</Text>
+        <Text style={styles.emptySubtitle}>{t('discover_and_save')}</Text>
         <TouchableOpacity style={styles.exploreButton} activeOpacity={0.8}>
-          <Text style={styles.exploreButtonText}>Explore Items</Text>
+          <Text style={styles.exploreButtonText}>{t('explore_items')}</Text>
           <Ionicons name="compass" size={18} color="#fff" />
         </TouchableOpacity>
       </View>
@@ -174,11 +151,12 @@ export default function Wishlist() {
       <View style={styles.errorIconContainer}>
         <Ionicons name="alert-circle-outline" size={80} color="#ff6b6b" />
       </View>
-      <Text style={styles.errorTitle}>Oops! Something went wrong</Text>
+<Text style={styles.errorTitle}>{t('something_went_wrong')}</Text>
       <Text style={styles.errorMessage}>{error}</Text>
       <TouchableOpacity style={styles.retryButton} activeOpacity={0.8}>
         <Ionicons name="refresh" size={18} color="#fff" />
-        <Text style={styles.retryButtonText}>Try Again</Text>
+        <Text style={styles.retryButtonText}>{t('try_again')}</Text>
+
       </TouchableOpacity>
     </View>
   );
@@ -186,7 +164,7 @@ export default function Wishlist() {
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="#F8FDF8" />
-      
+
       {loading ? (
         renderLoadingState()
       ) : error ? (
