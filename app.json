@@ -4,31 +4,44 @@
     "slug": "SyrianaGo",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
-    "userInterfaceStyle": "light",
+    "icon": "./assets/images/icon.png",
+    "scheme": "syrianago",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
+    "extra": {
+      "EXPO_PUBLIC_API_URL": "https://api.syrianago.com",
+      "STRIPE_PUBLISHABLE_KEY": "pk_test_51PHuF7HJidMgnIYBk3s3gYKdn6eUsIdvlP3YIpywZTQBpu4306UmHnoLZGQqbsPMrEfMqvJoUf1AuVihMUEjATfq00Q9XpGTZM",
+      "router": {},
+      "eas": {
+        "projectId": "0bd1add6-7756-4905-873c-50d0bb29f449"
+      }
+    },
     "splash": {
-      "image": "./assets/splash-icon.png",
+      "image": "./assets/images/splash-icon.png",
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
+    },
+    "android": {
+      "package": "com.tanzi22.SyrianaGo",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/images/adaptive-icon.png",
+        "backgroundColor": "#ffffff"
+      },
+      "edgeToEdgeEnabled": true
     },
     "ios": {
       "supportsTablet": true
     },
-    "android": {
-      "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#ffffff"
-      },
-      "edgeToEdgeEnabled": true,
-      "package": "com.anonymous.SyrianaGo"
-    },
     "web": {
-      "favicon": "./assets/favicon.png"
+      "bundler": "metro",
+      "output": "static",
+      "favicon": "./assets/images/favicon.png"
     },
-    "extra": {
-      "eas": {
-        "projectId": "0bd1add6-7756-4905-873c-50d0bb29f449"
-      }
+    "plugins": [
+      "expo-router"
+    ],
+    "experiments": {
+      "typedRoutes": true
     }
   }
 }
