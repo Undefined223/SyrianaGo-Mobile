@@ -24,7 +24,7 @@ It mirrors the web app functionality to provide users with a seamless booking ex
 
 ## Tech Stack
 - React Native  
-- Expo (optional, if used)  
+- Expo 
 - TypeScript / JavaScript  
 
 ---
@@ -40,6 +40,6 @@ It mirrors the web app functionality to provide users with a seamless booking ex
 ### Installation
 
 ```bash
-git clone https://github.com/yourusername/syrianago.git
+git clone https://github.com/Undefined223/SyrianaGo-Mobile
 cd syrianago/mobile
 npm install
